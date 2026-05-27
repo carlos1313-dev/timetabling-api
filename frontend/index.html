@@ -97,10 +97,10 @@
                     <div class="metric-value" id="metric-franjas">0 / 36</div>
                 </div>
                 <div class="metric-card">
-                    <div style="font-size: 0.9rem; text-transform: uppercase;">Tasa de Conflictos</div>
-                    <div class="metric-value">0%</div>
-                    <div style="font-size: 0.8rem;">(Cruces resueltos)</div>
-                </div>
+                    <div style="font-size: 0.9rem; text-transform: uppercase;">Cruces Evitados</div>
+                        <div class="metric-value" id="metric-conflictos">0</div>
+                        <div style="font-size: 0.8rem;">(Aristas procesadas)</div>
+                    </div>
             </div>
             
             <h4 style="margin: 0 0 10px 0; color: #64748b;">Mapa de Ocupación Física (Capacidad Max: 36 Franjas)</h4>
@@ -181,11 +181,13 @@
                 // 2. ACTUALIZAR DASHBOARD DE MÉTRICAS
                 document.getElementById('metrics-panel').style.display = 'block';
                 document.getElementById('metric-time').innerText = `${tiempoEjecucion} ms`;
-                
+
                 const franjasUsadas = datosGlobales.total_franjas_requeridas;
                 const franjasElement = document.getElementById('metric-franjas');
                 franjasElement.innerText = `${franjasUsadas} / 36`;
                 franjasElement.style.color = franjasUsadas > 36 ? '#ff4d4f' : 'var(--ud-dorado)';
+
+                document.getElementById('metric-conflictos').innerText = datosGlobales.conflictos_resueltos;
 
                 // 3. RENDERIZAR MAPA DE OCUPACIÓN
                 const gridMap = document.getElementById('grid-map');

@@ -54,9 +54,10 @@ def generar_horarios(request: GenerarHorarioRequest):
         return {
             "estado": resultado["estado"],
             "total_franjas_requeridas": resultado["total_franjas_requeridas"],
-            "alertas": alertas_totales, # AHORA MANDA AMBAS ALERTAS
+            "alertas": alertas_totales, 
             "estudiantes_sin_carga": sin_carga,
-            "asignaciones": resultado["asignaciones"]
+            "asignaciones": resultado["asignaciones"],
+            "conflictos_resueltos": resultado.get("conflictos_resueltos", 0)
         }
 
     except ValueError as ve:

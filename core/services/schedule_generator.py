@@ -102,5 +102,6 @@ class GeneradorHorariosService:
             "total_nodos_procesados": num_vertices,
             "total_franjas_requeridas": num_colores,
             "alertas_generador": alertas_infraestructura, 
-            "asignaciones": horario_generado
+            "asignaciones": horario_generado,
+            "conflictos_resueltos": grafo.m
         }

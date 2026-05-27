@@ -8,7 +8,7 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# --- NUEVO: Configuración de CORS ---
+
 # Esto permite que tu archivo index.html (frontend) pueda pedirle datos al servidor
 app.add_middleware(
     CORSMiddleware,
