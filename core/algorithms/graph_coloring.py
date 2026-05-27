@@ -40,38 +40,71 @@ class RepresentacionGrafo:
     # Algoritmos de Coloreo
     # ---------------------------------------------------------
 
-    def coloreo_voraz(self, orden_vertices: List[int] = None) -> Tuple[List[int], int]:
-        if orden_vertices is None:
-            orden_vertices = list(range(self.n))
-
+    def coloreo_voraz(self) -> Tuple[List[int], int]:
+        """
+        Asigna colores de forma secuencial y voraz (Greedy puro).
+        A cada vértice se le asigna el primer color disponible (el más bajo)
+        que no esté siendo usado por ninguno de sus vecinos adyacentes.
+        """
         colores = [-1] * self.n
 
-        for vertice in orden_vertices:
-            colores_usados_vecinos: Set[int] = set()
-
-            for vecino in self.adj[vertice]:
+        for v in range(self.n):
+            # 1. Identificar qué colores ya tienen los vecinos de este vértice
+            colores_vecinos = set()
+            for vecino in self.adj[v]:
                 if colores[vecino] != -1:
-                    colores_usados_vecinos.add(colores[vecino])
+                    colores_vecinos.add(colores[vecino])
+            
+            # 2. Buscar el color más bajo que no esté en la lista de los vecinos
+            color_elegido = 0
+            while color_elegido in colores_vecinos:
+                color_elegido += 1
+                
+            # 3. Asignar el color
+            colores[v] = color_elegido
 
-            color = 0
-            while color in colores_usados_vecinos:
-                color += 1
-
-            colores[vertice] = color
-
-        return colores, self.numero_colores_usados(colores)
+        # El total de franjas es el color más alto asignado + 1 (porque empezamos en 0)
+        num_colores = max(colores) + 1 if self.n > 0 else 0
+        return colores, num_colores
 
     def coloreo_welsh_powell(self) -> Tuple[List[int], int]:
-        grados = self.grados_vertices()
+        """
+        Asigna colores a los vértices usando el algoritmo estático Welsh-Powell.
+        1. Ordena los vértices por grado de forma descendente.
+        2. Asigna colores iterativamente a los vértices no adyacentes.
+        """
+        colores = [-1] * self.n
         
-        # Ordenar vértices de mayor a menor grado
-        orden_vertices = sorted(
-            range(self.n),
-            key=lambda v: grados[v],
-            reverse=True
-        )
-
-        return self.coloreo_voraz(orden_vertices)
+        # Calcular el grado de cada vértice (cuántas aristas tiene)
+        grados = [len(self.adj[i]) for i in range(self.n)]
+        
+        # Ordenar los vértices de mayor a menor grado
+        vertices_ordenados = sorted(range(self.n), key=lambda x: grados[x], reverse=True)
+        
+        color_actual = 0
+        vertices_coloreados = 0
+        
+        while vertices_coloreados < self.n:
+            # En cada pasada de color, intentamos pintar los que más podamos
+            vertices_pintados_en_esta_ronda = []
+            
+            for v in vertices_ordenados:
+                if colores[v] == -1:
+                    # Verificar si este vértice choca con alguno que ya pintamos con el color_actual
+                    puede_colorearse = True
+                    for vecino in self.adj[v]:
+                        if vecino in vertices_pintados_en_esta_ronda:
+                            puede_colorearse = False
+                            break
+                    
+                    if puede_colorearse:
+                        colores[v] = color_actual
+                        vertices_pintados_en_esta_ronda.append(v)
+                        vertices_coloreados += 1
+                        
+            color_actual += 1
+            
+        return colores, color_actual
 
     def coloreo_dsatur(self) -> Tuple[List[int], int]:
         grados = self.grados_vertices()

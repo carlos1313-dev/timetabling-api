@@ -19,3 +19,6 @@ class HorarioResponse(BaseModel):
     alertas: List[str]
     estudiantes_sin_carga: List[str]
     asignaciones: List[AsignacionResponse]
+    
+class GenerarHorarioRequest(BaseModel):
+    algoritmo: str = "dsatur" # Valor por defecto

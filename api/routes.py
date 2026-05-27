@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from api.schemas import HorarioResponse
+from api.schemas import HorarioResponse, GenerarHorarioRequest
 
 from infrastructure.data_sources.file_repository import FacultadJSONRepository
 from core.services.validations import ValidadorInscripcionesService
@@ -15,7 +15,7 @@ from core.rules.default_rules import (
 router = APIRouter()
 
 @router.post("/generar", response_model=HorarioResponse)
-def generar_horarios():
+def generar_horarios(request: GenerarHorarioRequest):
     try:
         # 1. Infraestructura: Cargar los datos desde el archivo
         repo = FacultadJSONRepository(file_path="infrastructure/dataset/facultad_data.json")
@@ -35,7 +35,7 @@ def generar_horarios():
 
         reglas = [ReglaSesionesMismoGrupo(), ReglaMismoProfesor(), ReglaMismoSemestre(), ReglaEstudiantesCompartidos()]
         generador = GeneradorHorariosService(reglas)
-        resultado = generador.ejecutar(grupos_asignados)
+        resultado = generador.ejecutar(grupos_asignados, algoritmo=request.algoritmo)
 
         # Identificar estudiantes sin carga
         estudiantes_con_carga = set()

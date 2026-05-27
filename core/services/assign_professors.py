@@ -27,8 +27,14 @@ class AsignadorProfesoresService:
         if area_materia not in profesor.areas_habilitadas:
             return False # El profesor no sabe dictar esta área
 
-        # 2. Validar Restricción de Repitentes (Vetos)
-        estudiantes_que_vetan = self.vetos_por_materia_profe[grupo.materia.id_materia][profesor.id_profesor]
+        # 2. Validar Restricción de Repitentes (Vetos) de forma SEGURA
+        # Obtenemos los vetos de la materia, si no hay, devolvemos un dict vacío {}
+        vetos_materia = self.vetos_por_materia_profe.get(grupo.materia.id_materia, {})
+        
+        # Obtenemos los estudiantes que vetaron a este profe, si no hay, devolvemos un set vacío set()
+        estudiantes_que_vetan = vetos_materia.get(profesor.id_profesor, set())
+        
+        # Intersección matemática O(1)
         hay_conflicto = bool(estudiantes_que_vetan.intersection(grupo.estudiantes_inscritos))
         return not hay_conflicto
 
@@ -53,45 +59,68 @@ class AsignadorProfesoresService:
     def ejecutar(self, grupos: List[Grupo]) -> Tuple[List[Grupo], List[str]]:
         alertas_academicas = []
         
-        # 1. Construir la Lista de Adyacencia del Grafo Bipartito
-        # Nodos U = Profesores, Nodos V = Grupos
-        # Una arista existe si el profesor es idóneo y no está vetado.
+        # 1. Construir la Lista de Adyacencia del Grafo Bipartito (CON SLOTS)
         grafo_bipartito = defaultdict(list)
+        
+        # Diccionario para saber qué profesor original es cada slot
+        mapa_slots_a_profesor: Dict[str, Profesor] = {}
+        
         for profe in self.profesores:
-            for grupo in grupos:
-                if self._profesor_es_valido(profe, grupo):
-                    grafo_bipartito[profe.id_profesor].append(grupo.id_grupo)
+            # ¿Cuántos cursos puede dictar este profe? 
+            # (Asumamos un cálculo simple: max_creditos / 3 como ejemplo, 
+            #  o podrías agregar una propiedad 'max_grupos' a la entidad Profesor)
+            # Para este ejemplo, digamos que todos pueden dictar hasta 3 grupos.
+            max_grupos_profe = 3 
+            
+            for i in range(max_grupos_profe):
+                id_slot = f"{profe.id_profesor}_slot_{i}"
+                mapa_slots_a_profesor[id_slot] = profe
+                
+                for grupo in grupos:
+                    if self._profesor_es_valido(profe, grupo):
+                        # Conectamos el SLOT al grupo, no al profesor directamente
+                        grafo_bipartito[id_slot].append(grupo.id_grupo)
 
         # 2. Ejecutar Algoritmo de Emparejamiento Máximo Bipartito
-        asignaciones_optimas: Dict[str, str] = {} # Mapea id_grupo -> id_profesor
+        asignaciones_optimas: Dict[str, str] = {} # Mapea id_grupo -> id_slot
         
-        for profe in self.profesores:
+        for id_slot in mapa_slots_a_profesor.keys():
             visitados = set()
-            self._dfs_matching(profe.id_profesor, grafo_bipartito, visitados, asignaciones_optimas)
+            self._dfs_matching(id_slot, grafo_bipartito, visitados, asignaciones_optimas)
 
-        # 3. Aplicar resultados a las entidades y manejar excepciones (Soft Constraints)
-        diccionario_profesores = {p.id_profesor: p for p in self.profesores}
-        
+        # 3. Aplicar resultados a las entidades y manejar excepciones
         for grupo in grupos:
             if grupo.id_grupo in asignaciones_optimas:
-                # El algoritmo logró emparejarlos sin romper reglas
-                id_profe_asignado = asignaciones_optimas[grupo.id_grupo]
-                grupo.asignar_profesor(diccionario_profesores[id_profe_asignado])
+                # El algoritmo logró emparejarlo con un slot
+                id_slot_asignado = asignaciones_optimas[grupo.id_grupo]
+                profesor_real = mapa_slots_a_profesor[id_slot_asignado]
+                grupo.asignar_profesor(profesor_real)
             else:
-                # El algoritmo determinó que es matemáticamente imposible emparejar
-                # a este grupo sin romper la regla de vetos (Falta de personal).
                 if not self.profesores:
                     raise RuntimeError("Falla crítica: La facultad no tiene profesores.")
                 
-                profesor_rescate = self.profesores[0] 
+                # 1. Buscar profesores que al menos sepan dictar el área (ignorar vetos)
+                profesores_idoneos = [
+                    p for p in self.profesores 
+                    if grupo.materia.area_conocimiento in p.areas_habilitadas
+                ]
+                
+                # 2. Asignar rescate de forma más inteligente
+                if profesores_idoneos:
+                    profesor_rescate = profesores_idoneos[0]
+                    motivo_alerta = "Rompimiento de restricción por repitentes."
+                else:
+                    # Peor escenario: Nadie sabe dictar esto en toda la facultad
+                    profesor_rescate = self.profesores[0]
+                    motivo_alerta = "Rompimiento CRÍTICO: Docente sin área habilitada y restricción de repitentes."
+
                 grupo.asignar_profesor(profesor_rescate)
                 
                 alerta = (
                     f"⚠️ ALERTA ACADÉMICA - Grupo {grupo.id_grupo} ({grupo.materia.nombre}): "
                     f"Asignado al docente {profesor_rescate.nombre} por falta de personal. "
-                    f"Rompimiento de restricción por repitentes."
+                    f"{motivo_alerta}"
                 )
                 alertas_academicas.append(alerta)
                 logger.warning(alerta)
-                
         return grupos, alertas_academicas

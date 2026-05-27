@@ -41,7 +41,7 @@ class GeneradorHorariosService:
 
         return aristas, mapa_indices
 
-    def ejecutar(self, grupos: List[Grupo]) -> Dict[str, Any]:
+    def ejecutar(self, grupos: List[Grupo], algoritmo: str = "dsatur") -> Dict[str, Any]:
         if any(not g.esta_asignado() for g in grupos):
             raise ValueError("Todos los grupos deben tener un profesor asignado.")
 
@@ -54,10 +54,17 @@ class GeneradorHorariosService:
 
         # 3. Módulo Matemático
         grafo = RepresentacionGrafo(num_vertices, aristas_grafo)
-        colores, num_colores = grafo.coloreo_dsatur()
+        
+        
+        if algoritmo == "welsh_powell":
+            colores, num_colores = grafo.coloreo_welsh_powell()
+        elif algoritmo == "voraz":
+            colores, num_colores = grafo.coloreo_voraz()
+        else:
+            colores, num_colores = grafo.coloreo_dsatur()
 
         if not grafo.es_coloreo_valido(colores):
-            raise RuntimeError("Fallo crítico: El coloreo contiene adyacencias inválidas.")
+            raise RuntimeError(f"Fallo crítico: El coloreo {algoritmo} contiene adyacencias inválidas.")
 
        # 4. Formatear salida aplicando la restricción física de 36 franjas
         horario_generado = []
