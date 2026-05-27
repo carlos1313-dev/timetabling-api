@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Horarios | ERP Facultad de Ingeniería</title>
+    <style>
+        :root { --ud-rojo: #C8102E; --ud-dorado: #F1C400; --fondo: #f4f7f6; --texto: #333333; --blanco: #ffffff; --borde: #e0e0e0; }
+        body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: var(--fondo); color: var(--texto); margin: 0; padding: 0; }
+        header { background-color: var(--ud-rojo); color: var(--blanco); padding: 1.5rem 2rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid var(--ud-dorado); }
+        header h1 { margin: 0; font-size: 1.5rem; }
+        .container { max-width: 1200px; margin: 2rem auto; padding: 0 1rem; }
+        .control-panel { background-color: var(--blanco); padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;}
+        button { background-color: var(--ud-rojo); color: var(--blanco); border: none; padding: 12px 24px; font-size: 1rem; font-weight: bold; border-radius: 4px; cursor: pointer; transition: 0.3s; }
+        button:hover { background-color: #a00d25; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+        .alert-box { background-color: #fff3cd; color: #856404; padding: 1rem; border-left: 4px solid #ffeeba; margin-bottom: 1rem; border-radius: 4px; display: none; }
+        .info-box { background-color: #e2e3e5; color: #383d41; padding: 1rem; border-left: 4px solid #6c757d; margin-bottom: 2rem; border-radius: 4px; display: none; }
+        .grid-horarios { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.5rem; }
+        .card { background-color: var(--blanco); border-radius: 8px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.08); border-top: 4px solid var(--ud-dorado); display: flex; flex-direction: column; }
+        .card-header { background-color: #f8f9fa; padding: 1rem; border-bottom: 1px solid var(--borde); }
+        .card-header h3 { margin: 0; font-size: 1.2rem; color: var(--ud-rojo); }
+        .card-body { padding: 1rem; flex-grow: 1; }
+        .info-row { margin: 8px 0; font-size: 0.95rem; display: flex; align-items: center; gap: 8px; }
+        .sesiones-container { margin-top: 15px; border-top: 1px dashed var(--borde); padding-top: 10px; }
+        .sesiones-titulo { font-size: 0.85rem; color: #666; font-weight: bold; margin-bottom: 8px; text-transform: uppercase; }
+        .badge-sesion { background-color: #f1f3f5; border-left: 3px solid var(--ud-dorado); padding: 6px 10px; margin-bottom: 6px; border-radius: 0 4px 4px 0; font-size: 0.85rem; color: #333; display: flex; justify-content: space-between; align-items: center; }
+        .badge-sesion span { font-weight: 600; color: var(--ud-rojo); }
+        .loader { display: none; margin-right: 15px; font-style: italic; color: #666; }
+        .filtros-container { display: flex; gap: 10px; margin-top: 10px; width: 100%; border-top: 1px solid #eee; padding-top: 15px;}
+        select, input { padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 1rem; flex-grow: 1;}
+        .estudiantes-lista { font-size: 0.8rem; color: #666; max-height: 60px; overflow-y: auto; background: #f9f9f9; padding: 5px; border-radius: 4px; margin-top: 10px;}
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Planificación Académica ERP</h1>
+        <div id="status-badge" style="background: rgba(255,255,255,0.2); padding: 5px 10px; border-radius: 4px; font-size: 0.9rem;">
+            Esperando ejecución...
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="control-panel">
+            <div style="flex-grow: 1;">
+                <h2 style="margin: 0 0 5px 0;">Motor Core (DSatur + DFS)</h2>
+                <p style="margin: 0; color: #666; font-size: 0.9rem;">Asignación inteligente respetando límite de 18 créditos y vetos.</p>
+                
+                <div class="filtros-container">
+                    <select id="filtro-tipo">
+                        <option value="todos">Mostrar Toda la Facultad</option>
+                        <option value="profesor">Filtrar por Profesor</option>
+                        <option value="estudiante">Filtrar por Estudiante (ID)</option>
+                    </select>
+                    <input type="text" id="filtro-valor" placeholder="Ej: Augusto Peña o EST_001" disabled>
+                    <button onclick="renderizarTarjetas()" style="padding: 8px 15px; background: #333;">Filtrar</button>
+                </div>
+
+            </div>
+            <div style="display: flex; align-items: center; justify-content: flex-end; width: 100%; margin-top: 15px;">
+                <span class="loader" id="loader">Procesando malla y vetos...</span>
+                <button id="btn-generar" onclick="ejecutarAlgoritmo()">1. Generar Horarios Óptimos</button>
+            </div>
+        </div>
+
+        <div id="alertas-container" class="alert-box">
+            <strong>⚠️ Alertas Académicas:</strong>
+            <ul id="lista-alertas" style="margin-top: 10px; margin-bottom: 0;"></ul>
+        </div>
+
+        <div id="info-container" class="info-box">
+            <strong>ℹ️ Estudiantes sin carga asignada:</strong>
+            <p id="texto-sin-carga" style="margin: 5px 0 0 0; font-size: 0.9rem;"></p>
+        </div>
+
+        <div class="grid-horarios" id="grid-horarios"></div>
+    </div>
+
+    <script>
+        const diccionarioFranjas = {};
+        const dias = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+        const horas = ["06:00 - 08:00 AM", "08:00 - 10:00 AM", "10:00 - 12:00 M", "02:00 - 04:00 PM", "04:00 - 06:00 PM", "06:00 - 08:00 PM"];
+        let index = 0;
+        for (let h of horas) { for (let d of dias) { diccionarioFranjas[index] = `${d} | ${h}`; index++; } }
+
+        let datosGlobales = null; // Guardamos los datos para poder filtrarlos sin volver a llamar a la API
+
+        // Lógica de habilitar el input de filtro
+        document.getElementById('filtro-tipo').addEventListener('change', function(e) {
+            const input = document.getElementById('filtro-valor');
+            input.disabled = (e.target.value === 'todos');
+            if(input.disabled) { input.value = ''; renderizarTarjetas(); }
+        });
+
+        async function ejecutarAlgoritmo() {
+            const btn = document.getElementById('btn-generar');
+            const loader = document.getElementById('loader');
+            
+            btn.disabled = true; loader.style.display = 'inline';
+
+            try {
+                const respuesta = await fetch('http://127.0.0.1:8000/api/v1/horarios/generar', { method: 'POST' });
+                if (!respuesta.ok) {
+                    const error = await respuesta.json();
+                    throw new Error(error.detail);
+                }
+                
+                datosGlobales = await respuesta.json();
+                
+                // Mostrar Alertas
+                const alertasContainer = document.getElementById('alertas-container');
+                const listaAlertas = document.getElementById('lista-alertas');
+                listaAlertas.innerHTML = '';
+                if (datosGlobales.alertas.length > 0) {
+                    alertasContainer.style.display = 'block';
+                    datosGlobales.alertas.forEach(a => { const li = document.createElement('li'); li.innerText = a; listaAlertas.appendChild(li); });
+                } else { alertasContainer.style.display = 'none'; }
+
+                // Mostrar Estudiantes sin carga
+                const infoContainer = document.getElementById('info-container');
+                if (datosGlobales.estudiantes_sin_carga.length > 0) {
+                    infoContainer.style.display = 'block';
+                    document.getElementById('texto-sin-carga').innerText = datosGlobales.estudiantes_sin_carga.join(", ");
+                } else { infoContainer.style.display = 'none'; }
+
+                document.getElementById('status-badge').innerText = `Éxito | Franjas usadas: ${datosGlobales.total_franjas_requeridas}`;
+                document.getElementById('status-badge').style.background = 'rgba(40, 167, 69, 0.8)';
+
+                renderizarTarjetas(); // Pintamos todo por defecto
+
+            } catch (error) {
+                alert("Validación fallida: " + error.message);
+                document.getElementById('status-badge').innerText = "Inscripciones Bloqueadas";
+                document.getElementById('status-badge').style.background = 'rgba(200, 16, 46, 0.8)';
+            } finally {
+                btn.disabled = false; loader.style.display = 'none';
+            }
+        }
+
+        function renderizarTarjetas() {
+            if(!datosGlobales) return;
+
+            const grid = document.getElementById('grid-horarios');
+            grid.innerHTML = '';
+            
+            const tipoFiltro = document.getElementById('filtro-tipo').value;
+            const valorFiltro = document.getElementById('filtro-valor').value.toLowerCase().trim();
+
+            const gruposAgrupados = {};
+            
+            datosGlobales.asignaciones.forEach(asig => {
+                // LÓGICA DE FILTRADO
+                if (tipoFiltro === 'profesor' && !asig.profesor.toLowerCase().includes(valorFiltro)) return;
+                if (tipoFiltro === 'estudiante' && !asig.estudiantes_inscritos.some(e => e.toLowerCase().includes(valorFiltro))) return;
+
+                const id = asig.id_grupo;
+                if (!gruposAgrupados[id]) {
+                    gruposAgrupados[id] = {
+                        materia: asig.materia, id_grupo: asig.id_grupo, nivel: asig.nivel_materia,
+                        profesor: asig.profesor, inscritos: asig.cantidad_inscritos,
+                        lista_estudiantes: asig.estudiantes_inscritos, // NUEVO
+                        sesiones: []
+                    };
+                }
+                gruposAgrupados[id].sesiones.push({ numero: asig.numero_sesion, color: asig.color_franja_horaria });
+            });
+
+            Object.values(gruposAgrupados).forEach(grupo => {
+                grupo.sesiones.sort((a, b) => a.numero - b.numero);
+                let sesionesHTML = '';
+                grupo.sesiones.forEach(sesion => {
+                    const franjaTexto = diccionarioFranjas[sesion.color] || `Franja Extra #${sesion.color}`;
+                    sesionesHTML += `<div class="badge-sesion"><div>🕒 ${franjaTexto}</div><span>Clase ${sesion.numero}</span></div>`;
+                });
+
+                //Mostramos los estudiantes inscritos en una caja scrolleable
+                const listaEstudiantesCortada = grupo.lista_estudiantes.join(", ");
+
+                const tarjetaHTML = `
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>${grupo.materia}</h3>
+                            <span style="font-size: 0.8rem; color: #666;">Grupo: ${grupo.id_grupo} | Nivel: ${grupo.nivel}</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="info-row">👨‍🏫 <strong>Docente:</strong> ${grupo.profesor}</div>
+                            <div class="info-row">👥 <strong>Inscritos:</strong> ${grupo.inscritos} alumnos</div>
+                            <div class="estudiantes-lista" title="${listaEstudiantesCortada}">
+                                <strong>Lista:</strong> ${listaEstudiantesCortada}
+                            </div>
+                            <div class="sesiones-container">
+                                <div class="sesiones-titulo">Horario Semanal (${grupo.sesiones.length} sesiones)</div>
+                                ${sesionesHTML}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                grid.innerHTML += tarjetaHTML;
+            });
+        }
+    </script>
+</body>
+</html>
