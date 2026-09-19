@@ -11,9 +11,19 @@ class AsignadorProfesoresService:
     Caso de Uso: Asignación de docentes utilizando el algoritmo de 
     Emparejamiento Máximo Bipartito (Maximum Bipartite Matching) basado en DFS.
     """
-    def __init__(self, profesores: List[Profesor], historial: List[HistorialReprobacion]):
+    def __init__(self, profesores: List[Profesor], historial: List[HistorialReprobacion],
+                 respetar_vetos: bool = True):
+        """
+        respetar_vetos=True  (default, comportamiento original): la Fase 1 nunca
+            asigna un profesor a un grupo si algún estudiante inscrito lo vetó.
+        respetar_vetos=False (modo BASELINE para ablación): ignora los vetos por
+            completo, como si esa restricción no existiera. Se usa únicamente
+            para comparar contra la propuesta en los experimentos de benchmark;
+            no se activa en la ejecución normal de la API.
+        """
         self.profesores = profesores
         self.vetos_por_materia_profe = self._construir_indice_vetos(historial)
+        self.respetar_vetos = respetar_vetos
 
     def _construir_indice_vetos(self, historial: List[HistorialReprobacion]) -> Dict[str, Dict[str, Set[str]]]:
         indice = defaultdict(lambda: defaultdict(set))
@@ -28,6 +38,10 @@ class AsignadorProfesoresService:
             return False # El profesor no sabe dictar esta área
 
         # 2. Validar Restricción de Repitentes (Vetos) de forma SEGURA
+        # Si el modo baseline desactivó esta restricción, no hay nada que validar.
+        if not self.respetar_vetos:
+            return True
+
         # Obtenemos los vetos de la materia, si no hay, devolvemos un dict vacío {}
         vetos_materia = self.vetos_por_materia_profe.get(grupo.materia.id_materia, {})
         
@@ -66,12 +80,11 @@ class AsignadorProfesoresService:
         mapa_slots_a_profesor: Dict[str, Profesor] = {}
         
         for profe in self.profesores:
-            # ¿Cuántos cursos puede dictar este profe? 
-            # (Asumamos un cálculo simple: max_creditos / 3 como ejemplo, 
-            #  o podrías agregar una propiedad 'max_grupos' a la entidad Profesor)
-            # Para este ejemplo, digamos que todos pueden dictar hasta 3 grupos.
-            max_grupos_profe = 3 
-            
+            # ¿Cuántos cursos puede dictar este profe? Se deriva de su carga máxima
+            # real (max_creditos_docencia), asumiendo ~3 créditos promedio por grupo,
+            # en vez de un número fijo igual para todos los tipos de contrato.
+            max_grupos_profe = max(1, profe.max_creditos_docencia // 3)
+
             for i in range(max_grupos_profe):
                 id_slot = f"{profe.id_profesor}_slot_{i}"
                 mapa_slots_a_profesor[id_slot] = profe
