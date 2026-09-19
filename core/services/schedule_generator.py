@@ -3,6 +3,7 @@ from typing import List, Tuple, Dict, Any
 from core.entities import Grupo, SesionGrupo
 from core.rules.base_rule import ReglaConflictoStrategy
 from core.algorithms.graph_coloring import RepresentacionGrafo
+from core.services.optimizacion_traslados import OptimizadorTrasladosService
 
 class GeneradorHorariosService:
 
@@ -63,6 +64,11 @@ class GeneradorHorariosService:
         else:
             colores, num_colores = grafo.coloreo_dsatur()
 
+        sede_por_sesion = [sesion.grupo_padre.sede for sesion in sesiones]
+        optimizador = OptimizadorTrasladosService(sesiones, grafo, sede_por_sesion)
+        resultado_opt = optimizador.ejecutar(colores)
+        colores = resultado_opt.colores  # usar el coloreo refinado en el resto del método
+
         if not grafo.es_coloreo_valido(colores):
             raise RuntimeError(f"Fallo crítico: El coloreo {algoritmo} contiene adyacencias inválidas.")
 
@@ -103,5 +109,7 @@ class GeneradorHorariosService:
             "total_franjas_requeridas": num_colores,
             "alertas_generador": alertas_infraestructura, 
             "asignaciones": horario_generado,
-            "conflictos_resueltos": grafo.m
+            "conflictos_resueltos": grafo.m,
+            "resultado_optimizacion_inicial": resultado_opt.penalizacion_inicial,
+            "resultado_optimizacion_final": resultado_opt.penalizacion_final
         }

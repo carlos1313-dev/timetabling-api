@@ -6,7 +6,8 @@
       "nivel": 1,
       "creditos": 3,
       "sesiones_semanales": 2,
-      "area_conocimiento": "Ciencias Básicas"
+      "area_conocimiento": "Ciencias Básicas",
+      "sede": "CALLE 40 (SABIO CALDAS / ADMINISTRATIVO)"
     },
     {
       "id": "7",
@@ -14,7 +15,8 @@
       "nivel": 2,
       "creditos": 3,
       "sesiones_semanales": 2,
-      "area_conocimiento": "Ciencias Básicas"
+      "area_conocimiento": "Ciencias Básicas",
+      "sede": "CALLE 40 (SABIO CALDAS / ADMINISTRATIVO)"
     },
     {
       "id": "16",
@@ -22,7 +24,8 @@
       "nivel": 3,
       "creditos": 3,
       "sesiones_semanales": 2,
-      "area_conocimiento": "Ciencias Básicas"
+      "area_conocimiento": "Ciencias Básicas",
+      "sede": "CALLE 40 (SABIO CALDAS / ADMINISTRATIVO)"
     },
     {
       "id": "88",
@@ -30,7 +33,8 @@
       "nivel": 4,
       "creditos": 3,
       "sesiones_semanales": 2,
-      "area_conocimiento": "Ciencias Básicas"
+      "area_conocimiento": "Ciencias Básicas",
+      "sede": "CALLE 40 (SABIO CALDAS / ADMINISTRATIVO)"
     },
     {
       "id": "MN1",
@@ -38,7 +42,8 @@
       "nivel": 4,
       "creditos": 3,
       "sesiones_semanales": 2,
-      "area_conocimiento": "Ciencias Básicas"
+      "area_conocimiento": "Ciencias Básicas",
+      "sede": "UNIVERSIDAD (ECCI S)"
     },
     {
       "id": "415",
@@ -46,7 +51,8 @@
       "nivel": 5,
       "creditos": 3,
       "sesiones_semanales": 2,
-      "area_conocimiento": "Ciencias Básicas"
+      "area_conocimiento": "Ciencias Básicas",
+      "sede": "UNIVERSIDAD (ECCI S)"
     },
     {
       "id": "FIS1",
@@ -54,7 +60,8 @@
       "nivel": 2,
       "creditos": 2,
       "sesiones_semanales": 1,
-      "area_conocimiento": "Física"
+      "area_conocimiento": "Física",
+      "sede": "UNIVERSIDAD (ECCI S)"
     },
     {
       "id": "POO1",
@@ -62,7 +69,8 @@
       "nivel": 2,
       "creditos": 4,
       "sesiones_semanales": 3,
-      "area_conocimiento": "Programación"
+      "area_conocimiento": "Programación",
+      "sede": "UNIVERSIDAD (ECCI S)"
     },
     {
       "id": "ED1",
@@ -70,7 +78,8 @@
       "nivel": 3,
       "creditos": 4,
       "sesiones_semanales": 3,
-      "area_conocimiento": "Programación"
+      "area_conocimiento": "Programación",
+      "sede": "CALLE 34"
     },
     {
       "id": "ARQ1",
@@ -78,7 +87,8 @@
       "nivel": 5,
       "creditos": 3,
       "sesiones_semanales": 2,
-      "area_conocimiento": "Ingeniería de Computadores"
+      "area_conocimiento": "Ingeniería de Computadores",
+      "sede": "CALLE 34"
     }
   ],
   "profesores": [
