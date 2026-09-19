@@ -27,10 +27,8 @@ import random
 
 from core.entities import SesionGrupo
 from core.algorithms.graph_coloring import RepresentacionGrafo
+from core.config import FRANJAS_POR_DIA_DEFECTO
 
-
-# Mismo supuesto usado en GeneradorHorariosService: Lunes a Sábado, 6 franjas/día.
-FRANJAS_POR_DIA = 6
 
 
 @dataclass
@@ -58,6 +56,7 @@ class OptimizadorTrasladosService:
         sesiones: List[SesionGrupo],
         grafo: RepresentacionGrafo,
         sede_por_sesion: List[str],
+        franjas_por_dia: int = FRANJAS_POR_DIA_DEFECTO,
     ):
         if len(sesiones) != grafo.n or len(sede_por_sesion) != grafo.n:
             raise ValueError(
@@ -67,6 +66,7 @@ class OptimizadorTrasladosService:
         self.sesiones = sesiones
         self.grafo = grafo
         self.sede_por_sesion = sede_por_sesion
+        self.franjas_por_dia = franjas_por_dia
         self._sesiones_por_estudiante = self._indexar_sesiones_por_estudiante()
 
     # ------------------------------------------------------------------
@@ -100,7 +100,7 @@ class OptimizadorTrasladosService:
                 color = colores[idx]
                 if color < 0:
                     continue  # sesión sin franja (cayó en Alerta de Decanatura)
-                dia, franja = divmod(color, FRANJAS_POR_DIA)
+                dia, franja = divmod(color, self.franjas_por_dia)
                 eventos.append((dia, franja, self.sede_por_sesion[idx]))
 
             eventos.sort()
