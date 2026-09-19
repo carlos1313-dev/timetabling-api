@@ -54,12 +54,28 @@ def generar_dataset_masivo():
 
     # 4. Creación de Grupos
     grupos_abiertos = []
+
+    # Distribución de sedes por materia (mismo criterio usado en los escenarios de prueba)
+    sedes_por_materia = {
+        "25941": "CALLE 40 (SABIO CALDAS / ADMINISTRATIVO)",
+        "7":     "CALLE 40 (SABIO CALDAS / ADMINISTRATIVO)",
+        "16":    "CALLE 40 (SABIO CALDAS / ADMINISTRATIVO)",
+        "88":    "UNIVERSIDAD (ECCI S)",
+        "MN1":   "UNIVERSIDAD (ECCI S)",
+        "415":   "CALLE 34",
+        "FIS1":  "CALLE 40 (SABIO CALDAS / ADMINISTRATIVO)",
+        "POO1":  "UNIVERSIDAD (ECCI S)",
+        "ED1":   "UNIVERSIDAD (ECCI S)",
+        "ARQ1":  "CALLE 34",
+    }
+
     for materia in materias:
         # Abrimos 2 grupos por cada materia para dar opciones al algoritmo
         for num_grupo in (1, 2):
             grupos_abiertos.append({
                 "id_grupo": f"G0{num_grupo}_{materia['id']}",
                 "id_materia": materia['id'],
+                "sede": sedes_por_materia[materia['id']],
                 "cupo": 35,
                 "estudiantes_inscritos": [],
                 "_creditos": materia['creditos'] # Temporal para calcular el límite
