@@ -72,11 +72,12 @@ class FacultadJSONRepository:
                 raise ValueError(f"Inconsistencia de datos: La materia {id_mat} no existe en el catálogo.")
             
             nuevo_grupo = Grupo(
-                id_grupo=g_data['id_grupo'],
-                materia=diccionario_materias[id_mat],  # Inyectamos el objeto completo, no solo el ID
-                cupo=g_data['cupo'],
-                estudiantes_inscritos=set(g_data.get('estudiantes_inscritos', []))
-            )
+    id_grupo=g_data['id_grupo'],
+    materia=diccionario_materias[id_mat],
+    cupo=g_data['cupo'],
+    sede=g_data.get('sede', 'Sede Principal'),
+    estudiantes_inscritos=set(g_data.get('estudiantes_inscritos', []))
+)
             grupos.append(nuevo_grupo)
 
         return profesores, grupos, historial

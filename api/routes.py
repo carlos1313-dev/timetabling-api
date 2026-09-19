@@ -52,13 +52,15 @@ def generar_horarios(request: GenerarHorarioRequest):
         alertas_totales = alertas + resultado.get("alertas_generador", [])
 
         return {
-            "estado": resultado["estado"],
-            "total_franjas_requeridas": resultado["total_franjas_requeridas"],
-            "alertas": alertas_totales, 
-            "estudiantes_sin_carga": sin_carga,
-            "asignaciones": resultado["asignaciones"],
-            "conflictos_resueltos": resultado.get("conflictos_resueltos", 0)
-        }
+    "estado": resultado["estado"],
+    "total_franjas_requeridas": resultado["total_franjas_requeridas"],
+    "alertas": alertas_totales,
+    "estudiantes_sin_carga": sin_carga,
+    "asignaciones": resultado["asignaciones"],
+    "conflictos_resueltos": resultado.get("conflictos_resueltos", 0),
+    "traslados_antes": resultado.get("resultado_optimizacion_inicial", 0),
+    "traslados_despues": resultado.get("resultado_optimizacion_final", 0),
+}
 
     except ValueError as ve:
         # Aquí caerá el error si alguien se pasa de 18 créditos

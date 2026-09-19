@@ -101,6 +101,11 @@
                         <div class="metric-value" id="metric-conflictos">0</div>
                         <div style="font-size: 0.8rem;">(Aristas procesadas)</div>
                     </div>
+                    <div class="metric-card">
+    <div style="font-size: 0.9rem; text-transform: uppercase;">Traslados entre Sedes</div>
+    <div class="metric-value" id="metric-traslados">0 → 0</div>
+    <div style="font-size: 0.8rem;">(Antes → Después de optimizar)</div>
+</div>
             </div>
             
             <h4 style="margin: 0 0 10px 0; color: #64748b;">Mapa de Ocupación Física (Capacidad Max: 36 Franjas)</h4>
@@ -188,6 +193,11 @@
                 franjasElement.style.color = franjasUsadas > 36 ? '#ff4d4f' : 'var(--ud-dorado)';
 
                 document.getElementById('metric-conflictos').innerText = datosGlobales.conflictos_resueltos;
+
+// Métrica de traslados entre sedes
+const antes = datosGlobales.traslados_antes;
+const despues = datosGlobales.traslados_despues;
+document.getElementById('metric-traslados').innerText = `${antes} → ${despues}`;
 
                 // 3. RENDERIZAR MAPA DE OCUPACIÓN
                 const gridMap = document.getElementById('grid-map');
