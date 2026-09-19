@@ -1,0 +1,15 @@
+num_estudiantes,num_materias,num_profesores,num_grupos,num_vetos_generados,modo,estado,num_alertas_matching,num_alertas_decanatura,franjas_requeridas,excede_limite_36_franjas,violaciones_veto,traslados_antes,traslados_despues,reduccion_traslados_pct,tiempo_matching_s,tiempo_construccion_grafo_s,tiempo_coloreo_s,tiempo_refinamiento_s,tiempo_total_s
+20,4,3,8,8,baseline,ok,0,0,16,False,3,0,0,0.0,0.0001,0.0002,0.0002,0.0,0.0008
+20,4,3,8,8,propuesta,ok,3,0,16,False,3,0,0,0.0,0.0004,0.0002,0.0001,0.0001,0.0009
+50,4,3,8,20,baseline,ok,0,0,16,False,6,0,0,0.0,0.0,0.0002,0.0001,0.0001,0.0005
+50,4,3,8,20,propuesta,ok,3,0,16,False,6,0,0,0.0,0.0004,0.0002,0.0001,0.0002,0.001
+100,5,3,10,40,baseline,ok,2,0,18,False,8,11,11,0.0,0.0003,0.0003,0.0003,0.0003,0.0014
+100,5,3,10,40,propuesta,ok,8,0,18,False,8,11,11,0.0,0.001,0.0003,0.0002,0.0083,0.01
+250,12,6,24,100,baseline,ok,8,12,48,True,5,42,42,0.0,0.0019,0.0024,0.0018,0.0004,0.0073
+250,12,6,24,100,propuesta,ok,8,12,48,True,5,42,42,0.0,0.0011,0.0033,0.0058,0.0167,0.0278
+500,25,12,50,200,baseline,ok,18,62,78,True,3,106,106,0.0,0.0037,0.0088,0.0162,0.001,0.0313
+500,25,12,50,200,propuesta,ok,18,62,78,True,1,97,80,17.53,0.0036,0.0073,0.0213,2.8834,2.9183
+1000,50,24,100,400,baseline,ok,36,114,84,True,3,290,290,0.0,0.007,0.0532,0.1873,0.0044,0.2608
+1000,50,24,100,400,propuesta,ok,36,117,82,True,2,307,270,12.05,0.0102,0.0469,0.1881,2.3894,2.6401
+2000,100,48,200,800,baseline,ok,72,242,93,True,0,638,638,0.0,0.0207,0.1345,1.041,0.0113,1.2352
+2000,100,48,200,800,propuesta,ok,72,246,92,True,0,638,487,23.67,0.0279,0.188,1.0507,7.0899,8.3717
