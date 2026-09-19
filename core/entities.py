@@ -58,6 +58,7 @@ class Grupo:
     id_grupo: str
     materia: Materia
     cupo: int
+    sede: str = "Sede Principal"   # <-- nuevo campo
     estudiantes_inscritos: Set[str] = field(default_factory=set)
     profesor_asignado: Optional[Profesor] = None
 
