@@ -6,10 +6,11 @@
 ## 📝 Planteamiento del Problema
 El problema de asignación de horarios universitarios (*University Timetabling Problem*) es un desafío clásico de optimización combinatoria (NP-Hard). En la Facultad de Ingeniería, este problema se agrava por el alto volumen de estudiantes, los cruces de mallas curriculares y las limitaciones de infraestructura física. 
 
-Este proyecto modela y resuelve esta problemática construyendo un motor de asignación basado en grafos que garantiza horarios sin cruces, y además resuelve **tres restricciones críticas de la vida real**:
+Este proyecto modela y resuelve esta problemática construyendo un motor de asignación basado en grafos que garantiza horarios sin cruces, y además resuelve **cuatro restricciones críticas de la vida real**:
 1. **Idoneidad Docente (Skill-Based Matching):** Un profesor de Programación no puede ser asignado a una clase de Ciencias Básicas.
 2. **Restricción de Repitentes (Vetos):** Si un estudiante reprobó, el sistema debe evitar reasignarlo con el mismo docente para garantizar equidad académica.
 3. **Limitación de Infraestructura:** La facultad solo cuenta con 36 franjas físicas disponibles a la semana (Lunes a Sábado).
+4. **Minimización de Desplazamientos entre Sedes:** Cuando un estudiante o docente debe asistir a clases en más de una sede, el sistema busca agrupar asignaciones en franjas consecutivas para reducir el tiempo y la fatiga del traslado. Esta es una restricción funcionalmente importante, porque el costo operativo de cambiar de sede entre clases no es solo logístico, sino también académico y humano.
 
 ## 🧠 Modelado Matemático y Algoritmos de Grafos
 El núcleo de este sistema está construido sobre dos familias distintas de algoritmos de optimización de grafos, separados en dos fases de ejecución:
@@ -31,6 +32,8 @@ Una vez emparejados los docentes, el sistema aplica el **Patrón de Expansión d
 
 **Algoritmo implementado:** Se aplica el algoritmo heurístico **DSatur (Degree of Saturation)** para realizar el coloreo del grafo. El "color" representa una de las 36 franjas horarias disponibles. DSatur garantiza la minimización de franjas, asegurando que nodos adyacentes (con conflictos) jamás se programen a la misma hora. *(Se incluye Welsh-Powell como estrategia de comparación secundaria)*.
 
+Además, una vez definida la distribución horaria, se incorpora una segunda capa de optimización: **minimizar los traslados entre sedes**. Si dos sesiones del mismo estudiante o del mismo docente quedan en franjas consecutivas y pertenecen a sedes distintas, el sistema intenta reordenarlas o reasignarlas para mantener la continuidad geográfica. Esto convierte la programación en una solución no solo factible, sino también más eficiente desde el punto de vista operacional y de comodidad de la comunidad académica.
+
 ---
 
 ## 🚀 Características de Nivel Empresarial (ERP)
@@ -38,6 +41,7 @@ Más allá de los grafos, el sistema incluye validaciones de calidad de software
 * **Fail-Fast de Créditos:** El sistema suma la carga de cada estudiante e interrumpe la ejecución (HTTP 400) si alguien supera el límite reglamentario de 18 créditos.
 * **Control de Carga Física:** Si DSatur determina que la densidad del grafo exige más de 36 franjas (colores), se rechaza la programación excedente y se levanta una *Alerta de Decanatura* por falta de infraestructura.
 * **Alertas de Escasez Docente:** Relajación de restricciones (*Soft Constraints*) si matemáticamente no hay suficientes profesores idóneos, levantando alertas preventivas.
+* **Minimización de Desplazamientos entre Sedes:** Se incorpora un refinamiento posterior que valora la continuidad de la sede en franjas consecutivas, con el objetivo de reducir la cantidad de cambios de sede y ofrecer horarios más prácticos para docentes y estudiantes.
 * **Vistas Filtradas (UI):** Interfaz desacoplada que permite buscar la matriz de horarios unificada por profesor o por estudiante, mostrando sus compañeros de clase inscritos.
 * **Reporte de Anomalías:** Identificación de estudiantes matriculados en el catálogo que quedaron sin carga académica asignada.
 
@@ -117,10 +121,7 @@ Para evaluar los diferentes escenarios y la reacción del algoritmo DSatur, modi
 
 ## 👨‍💻 Autores
 
-* **Sergio Nicolás Osorio Guevara Codigo 20241020073**
+* **Carlos Enrique Sangronis Ricardo 20241020040**
 * **Silvana Martínez Pardo. Código: 20241020010**
-* **Arley Santiago Alvarez Ortiz. Código: 20241020008**
-* **Laura Sofia Cuadros Niño. 20222020160**
-* **Emmanuel Guerrero Piza: 20202020039**
 
 ---

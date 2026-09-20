@@ -71,6 +71,5 @@ Si no pasas `--escalas`, usa la lista por defecto definida en
   correr cada escala con varias semillas y reportar promedio ± desviación.
 - El generador **no respeta la estructura curricular por niveles**: inscribe
   materias a cada estudiante sin preferencia por su semestre, lo que infla
-  artificialmente los conflictos comparado con una universidad real (ver la
-  respuesta larga sobre esto en la conversación con Claude, o pregunta al
-  equipo). Esto afecta sobre todo la columna `franjas_requeridas`.
+  artificialmente los conflictos comparado con una universidad real.
+  Esto afecta sobre todo la columna `franjas_requeridas`.
