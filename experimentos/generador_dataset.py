@@ -255,24 +255,48 @@ def defaultdict_lista(nivel_maximo: int) -> Dict[int, List[Dict[str, Any]]]:
 
 
 def _generar_historial_reprobacion(
-    estudiantes: List[Dict[str, Any]],
-    materias: List[Dict[str, Any]],
+    grupos: List[Dict[str, Any]],
+    materias_por_id: Dict[str, Dict[str, Any]],
     profesores: List[Dict[str, Any]],
     num_vetos: int,
     rng: random.Random,
 ) -> List[Dict[str, Any]]:
+    """
+    A diferencia de una elección puramente aleatoria de (estudiante, materia,
+    profesor) -- que genera mayoritariamente vetos IMPOSIBLES de violar, por
+    ejemplo un profesor de otra área o un estudiante que nunca toma esa
+    materia -- aquí cada veto se arma sobre datos reales:
+      - la materia y el estudiante salen de un grupo con inscritos reales
+        (el estudiante SÍ toma esa materia), y
+      - el profesor vetado sale del conjunto de profesores cuya área de
+        conocimiento coincide con la de la materia (SÍ podría llegar a
+        dictarla).
+    Esto no garantiza que el veto se viole -- eso depende de a quién termine
+    asignando el matching -- pero asegura que exista una probabilidad real,
+    en vez de desperdiciar la mayoría de los vetos en combinaciones que
+    nunca podrían chocar.
+    """
+    grupos_con_inscritos = [g for g in grupos if g["estudiantes_inscritos"]]
+    if not grupos_con_inscritos:
+        return []
+
     historial = []
     intentos = 0
-    # Límite de intentos para no colgarse si num_vetos es más grande que las
-    # combinaciones únicas posibles en datasets muy pequeños.
     max_intentos = num_vetos * 20
 
     while len(historial) < num_vetos and intentos < max_intentos:
         intentos += 1
+        grupo = rng.choice(grupos_con_inscritos)
+        materia = materias_por_id[grupo["id_materia"]]
+
+        profesores_del_area = [p for p in profesores if materia["area_conocimiento"] in p["areas_habilitadas"]]
+        if not profesores_del_area:
+            continue
+
         veto = {
-            "id_estudiante": rng.choice(estudiantes)["id"],
-            "id_materia": rng.choice(materias)["id"],
-            "id_profesor_vetado": rng.choice(profesores)["id"],
+            "id_estudiante": rng.choice(list(grupo["estudiantes_inscritos"])),
+            "id_materia": materia["id"],
+            "id_profesor_vetado": rng.choice(profesores_del_area)["id"],
         }
         if veto not in historial:
             historial.append(veto)
@@ -318,7 +342,7 @@ def generar_dataset(num_estudiantes: int, semilla: int = 42) -> Dict[str, Any]:
     _inscribir_estudiantes(estudiantes, grupos_abiertos, materias_por_id, rng)
 
     historial_reprobacion = _generar_historial_reprobacion(
-        estudiantes, materias, profesores, num_vetos, rng
+        grupos_abiertos, materias_por_id, profesores, num_vetos, rng
     )
 
     # Limpiar el campo temporal de créditos
