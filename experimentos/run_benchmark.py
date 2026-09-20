@@ -55,8 +55,23 @@ from experimentos.hidratar import hidratar_desde_dict
 
 ESCALAS_ESTUDIANTES_DEFECTO = [20, 50, 100, 250, 500, 1000, 2000]
 ESCALA_TECHO_REAL = 5000
-SEMILLA_DATASET = 42
-ALGORITMO_COLOREO = "dsatur"
+SEMILLAS_DEFECTO = [42]
+
+# Horario real de la universidad (bloques de 2h, 6:00 AM - 8:00 PM, Lunes a Sábado)
+FRANJAS_POR_DIA_REAL = 7
+DIAS_HABILES_REAL = 6
+
+# Tres modos de comparación:
+#   - baseline_dsatur       : tu propio algoritmo, SIN veto ni refinamiento de sede
+#                             (ablación: aísla el efecto de tus restricciones)
+#   - baseline_welsh_powell : algoritmo clásico de la literatura, SIN veto ni
+#                             refinamiento (referencia externa, no inventada por ti)
+#   - propuesta             : DSatur + veto + refinamiento de sede (tu propuesta completa)
+CONFIGURACION_MODOS = {
+    "baseline_dsatur": {"algoritmo": "dsatur", "respetar_vetos": False, "refinar": False},
+    "baseline_welsh_powell": {"algoritmo": "welsh_powell", "respetar_vetos": False, "refinar": False},
+    "propuesta": {"algoritmo": "dsatur", "respetar_vetos": True, "refinar": True},
+}
 
 
 def _reglas_conflicto() -> List:
@@ -67,25 +82,29 @@ def _reglas_conflicto() -> List:
 
 def _correr_una_combinacion(datos_crudos: Dict[str, Any], modo: str) -> Dict[str, Any]:
     """
-    Corre el pipeline completo una vez, en modo 'baseline' o 'propuesta',
-    y devuelve una fila de resultados lista para el CSV.
+    Corre el pipeline completo una vez, según la configuración de `modo`
+    (ver CONFIGURACION_MODOS), y devuelve una fila de resultados lista para
+    el CSV. Usa el Hmax REAL de la universidad (franjas de 2h, 6am-8pm,
+    Lunes a Sábado), no el de 36 del demo original de 100 estudiantes.
     """
-    es_propuesta = (modo == "propuesta")
+    config = CONFIGURACION_MODOS[modo]
 
     t_inicio_total = time.perf_counter()
 
     profesores, grupos, historial = hidratar_desde_dict(datos_crudos)
 
     t_inicio_matching = time.perf_counter()
-    asignador = AsignadorProfesoresService(profesores, historial, respetar_vetos=es_propuesta)
+    asignador = AsignadorProfesoresService(profesores, historial, respetar_vetos=config["respetar_vetos"])
     grupos_asignados, alertas_matching = asignador.ejecutar(grupos)
     tiempo_matching_s = time.perf_counter() - t_inicio_matching
 
     generador = GeneradorHorariosService(_reglas_conflicto())
     resultado = generador.ejecutar(
         grupos_asignados,
-        algoritmo=ALGORITMO_COLOREO,
-        aplicar_refinamiento_sede=es_propuesta,
+        algoritmo=config["algoritmo"],
+        aplicar_refinamiento_sede=config["refinar"],
+        franjas_por_dia=FRANJAS_POR_DIA_REAL,
+        dias_habiles=DIAS_HABILES_REAL,
     )
 
     violaciones_veto = contar_violaciones_veto(grupos_asignados, historial)
@@ -103,7 +122,8 @@ def _correr_una_combinacion(datos_crudos: Dict[str, Any], modo: str) -> Dict[str
         "num_alertas_matching": len(alertas_matching),
         "num_alertas_decanatura": len(resultado["alertas_generador"]),
         "franjas_requeridas": resultado["total_franjas_requeridas"],
-        "excede_limite_36_franjas": resultado["total_franjas_requeridas"] > 36,
+        "hmax_utilizado": resultado["hmax_utilizado"],
+        "excede_hmax": resultado["total_franjas_requeridas"] > resultado["hmax_utilizado"],
         "violaciones_veto": violaciones_veto,
         "traslados_antes": traslados_antes,
         "traslados_despues": traslados_despues,
@@ -121,7 +141,7 @@ def _fila_error(modo: str, excepcion: Exception) -> Dict[str, Any]:
         "modo": modo,
         "estado": f"error: {type(excepcion).__name__}: {excepcion}",
         "num_alertas_matching": None, "num_alertas_decanatura": None,
-        "franjas_requeridas": None, "excede_limite_36_franjas": None,
+        "franjas_requeridas": None, "hmax_utilizado": None, "excede_hmax": None,
         "violaciones_veto": None, "traslados_antes": None, "traslados_despues": None,
         "reduccion_traslados_pct": None, "tiempo_matching_s": None,
         "tiempo_construccion_grafo_s": None, "tiempo_coloreo_s": None,
@@ -129,38 +149,44 @@ def _fila_error(modo: str, excepcion: Exception) -> Dict[str, Any]:
     }
 
 
-def ejecutar_benchmark(escalas: List[int], ruta_salida_csv: str) -> List[Dict[str, Any]]:
+def ejecutar_benchmark(escalas: List[int], semillas: List[int], ruta_salida_csv: str) -> List[Dict[str, Any]]:
     filas: List[Dict[str, Any]] = []
 
     for escala in escalas:
-        print(f"\n=== Escala: {escala} estudiantes ===")
-        datos_crudos = generar_dataset(escala, semilla=SEMILLA_DATASET)
-        metadata = datos_crudos["_metadata"]
-        print(
-            f"  Dataset generado -> materias={metadata['num_materias']} "
-            f"profesores={metadata['num_profesores']} grupos={metadata['num_grupos']} "
-            f"vetos={metadata['num_vetos']}"
-        )
+        for semilla in semillas:
+            print(f"\n=== Escala: {escala} estudiantes | semilla: {semilla} ===")
+            datos_crudos = generar_dataset(escala, semilla=semilla)
+            metadata = datos_crudos["_metadata"]
+            print(
+                f"  Dataset generado -> materias={metadata['num_materias']} "
+                f"profesores={metadata['num_profesores']} grupos={metadata['num_grupos']} "
+                f"vetos={metadata['num_vetos']}"
+            )
 
-        for modo in ("baseline", "propuesta"):
-            print(f"  Corriendo modo '{modo}'...", end=" ", flush=True)
-            try:
-                fila = _correr_una_combinacion(datos_crudos, modo)
-                print(f"OK ({fila['tiempo_total_s']}s, traslados {fila['traslados_antes']}->{fila['traslados_despues']}, vetos={fila['violaciones_veto']})")
-            except Exception as exc:  # noqa: BLE001 - queremos capturar cualquier falla y seguir con la siguiente escala
-                fila = _fila_error(modo, exc)
-                print(f"FALLÓ: {exc}")
-                traceback.print_exc()
+            for modo in CONFIGURACION_MODOS:
+                print(f"  Corriendo modo '{modo}'...", end=" ", flush=True)
+                try:
+                    fila = _correr_una_combinacion(datos_crudos, modo)
+                    print(
+                        f"OK ({fila['tiempo_total_s']}s, "
+                        f"traslados {fila['traslados_antes']}->{fila['traslados_despues']}, "
+                        f"vetos={fila['violaciones_veto']}, franjas={fila['franjas_requeridas']}/{fila['hmax_utilizado']})"
+                    )
+                except Exception as exc:  # noqa: BLE001 - capturamos cualquier falla y seguimos con la siguiente combinación
+                    fila = _fila_error(modo, exc)
+                    print(f"FALLÓ: {exc}")
+                    traceback.print_exc()
 
-            fila_completa = {
-                "num_estudiantes": escala,
-                "num_materias": metadata["num_materias"],
-                "num_profesores": metadata["num_profesores"],
-                "num_grupos": metadata["num_grupos"],
-                "num_vetos_generados": metadata["num_vetos"],
-                **fila,
-            }
-            filas.append(fila_completa)
+                fila_completa = {
+                    "num_estudiantes": escala,
+                    "semilla": semilla,
+                    "num_materias": metadata["num_materias"],
+                    "num_profesores": metadata["num_profesores"],
+                    "num_grupos": metadata["num_grupos"],
+                    "num_vetos_generados": metadata["num_vetos"],
+                    **fila,
+                }
+                filas.append(fila_completa)
 
     os.makedirs(os.path.dirname(ruta_salida_csv), exist_ok=True)
     campos = list(filas[0].keys()) if filas else []
@@ -174,9 +200,11 @@ def ejecutar_benchmark(escalas: List[int], ruta_salida_csv: str) -> List[Dict[st
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Benchmark de escalabilidad UCTP (baseline vs propuesta).")
+    parser = argparse.ArgumentParser(description="Benchmark de escalabilidad UCTP (baseline_dsatur vs baseline_welsh_powell vs propuesta).")
     parser.add_argument("--escalas", type=int, nargs="+", default=ESCALAS_ESTUDIANTES_DEFECTO,
-                         help="Lista de tamaños (num_estudiantes) a probar.")
+                         help="Lista de tamaños (num_estudiantes) a probar. Longitud y valores libres.")
+    parser.add_argument("--semillas", type=int, nargs="+", default=SEMILLAS_DEFECTO,
+                         help="Lista de semillas a probar por cada escala (para promedio ± desviación).")
     parser.add_argument("--incluir-techo", action="store_true",
                          help=f"Agrega la escala {ESCALA_TECHO_REAL} (techo real de la universidad) al final.")
     parser.add_argument("--salida", type=str,
@@ -188,7 +216,7 @@ def main():
     if args.incluir_techo and ESCALA_TECHO_REAL not in escalas:
         escalas.append(ESCALA_TECHO_REAL)
 
-    ejecutar_benchmark(escalas, args.salida)
+    ejecutar_benchmark(escalas, list(args.semillas), args.salida)
 
 
 if __name__ == "__main__":

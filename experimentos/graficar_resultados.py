@@ -1,6 +1,10 @@
 """
 Genera las gráficas de escalabilidad a partir de experimentos/resultados_benchmark.csv.
 
+Si el CSV tiene varias semillas por escala, cada punto de las gráficas es el
+PROMEDIO entre semillas, con barras de error mostrando la desviación estándar
+-- así una sola corrida con datos "raros" no distorsiona la curva.
+
 Uso:
     python experimentos/graficar_resultados.py
     python experimentos/graficar_resultados.py --csv otra_ruta.csv --salida otra_carpeta/
@@ -16,20 +20,26 @@ import matplotlib.pyplot as plt
 
 def _cargar(ruta_csv: str) -> pd.DataFrame:
     df = pd.read_csv(ruta_csv)
-    # Filas que fallaron no tienen métricas numéricas; las dejamos fuera de las gráficas
-    # pero se reportan aparte para que no se pierdan silenciosamente.
     fallidas = df[df["estado"] != "ok"]
     if not fallidas.empty:
         print("Filas con errores (excluidas de las gráficas):")
-        print(fallidas[["num_estudiantes", "modo", "estado"]].to_string(index=False))
+        print(fallidas[["num_estudiantes", "semilla", "modo", "estado"]].to_string(index=False))
     return df[df["estado"] == "ok"].copy()
 
 
+def _agregar(df: pd.DataFrame, columna: str) -> pd.DataFrame:
+    """Promedio y desviación estándar de `columna`, agrupado por (num_estudiantes, modo)."""
+    agregado = df.groupby(["num_estudiantes", "modo"])[columna].agg(["mean", "std"]).reset_index()
+    agregado["std"] = agregado["std"].fillna(0.0)  # una sola semilla -> std=0, no NaN
+    return agregado
+
+
 def graficar_tiempo_total(df: pd.DataFrame, carpeta_salida: str) -> None:
+    agregado = _agregar(df, "tiempo_total_s")
     fig, ax = plt.subplots(figsize=(8, 5))
-    for modo, grupo in df.groupby("modo"):
+    for modo, grupo in agregado.groupby("modo"):
         grupo = grupo.sort_values("num_estudiantes")
-        ax.plot(grupo["num_estudiantes"], grupo["tiempo_total_s"], marker="o", label=modo)
+        ax.errorbar(grupo["num_estudiantes"], grupo["mean"], yerr=grupo["std"], marker="o", capsize=3, label=modo)
     ax.set_xlabel("Número de estudiantes")
     ax.set_ylabel("Tiempo total de ejecución (s)")
     ax.set_title("Escalabilidad: tiempo total vs. tamaño del problema")
@@ -41,11 +51,17 @@ def graficar_tiempo_total(df: pd.DataFrame, carpeta_salida: str) -> None:
 
 
 def graficar_tiempo_por_etapa(df: pd.DataFrame, carpeta_salida: str) -> None:
-    propuesta = df[df["modo"] == "propuesta"].sort_values("num_estudiantes")
+    propuesta = df[df["modo"] == "propuesta"]
     fig, ax = plt.subplots(figsize=(8, 5))
-    ax.plot(propuesta["num_estudiantes"], propuesta["tiempo_matching_s"], marker="o", label="Matching (Fase 1)")
-    ax.plot(propuesta["num_estudiantes"], propuesta["tiempo_coloreo_s"], marker="o", label="Coloreo DSatur (Fase 2)")
-    ax.plot(propuesta["num_estudiantes"], propuesta["tiempo_refinamiento_s"], marker="o", label="Refinamiento de sede")
+    for columna, etiqueta in [
+        ("tiempo_matching_s", "Matching (Fase 1)"),
+        ("tiempo_coloreo_s", "Coloreo DSatur (Fase 2)"),
+        ("tiempo_refinamiento_s", "Refinamiento de sede"),
+    ]:
+        agregado = propuesta.groupby("num_estudiantes")[columna].agg(["mean", "std"]).reset_index()
+        agregado["std"] = agregado["std"].fillna(0.0)
+        agregado = agregado.sort_values("num_estudiantes")
+        ax.errorbar(agregado["num_estudiantes"], agregado["mean"], yerr=agregado["std"], marker="o", capsize=3, label=etiqueta)
     ax.set_xlabel("Número de estudiantes")
     ax.set_ylabel("Tiempo (s)")
     ax.set_title("Modo propuesta: tiempo por etapa del pipeline")
@@ -57,18 +73,21 @@ def graficar_tiempo_por_etapa(df: pd.DataFrame, carpeta_salida: str) -> None:
 
 
 def graficar_reduccion_traslados(df: pd.DataFrame, carpeta_salida: str) -> None:
-    propuesta = df[df["modo"] == "propuesta"].sort_values("num_estudiantes")
-    fig, ax1 = plt.subplots(figsize=(8, 5))
+    propuesta = df[df["modo"] == "propuesta"]
+    antes = propuesta.groupby("num_estudiantes")["traslados_antes"].agg(["mean", "std"]).reset_index().sort_values("num_estudiantes")
+    despues = propuesta.groupby("num_estudiantes")["traslados_despues"].agg(["mean", "std"]).reset_index().sort_values("num_estudiantes")
+    pct = propuesta.groupby("num_estudiantes")["reduccion_traslados_pct"].agg(["mean", "std"]).reset_index().sort_values("num_estudiantes")
 
-    ax1.plot(propuesta["num_estudiantes"], propuesta["traslados_antes"], marker="o", label="Traslados antes (sin refinar)")
-    ax1.plot(propuesta["num_estudiantes"], propuesta["traslados_despues"], marker="o", label="Traslados después (refinado)")
+    fig, ax1 = plt.subplots(figsize=(8, 5))
+    ax1.errorbar(antes["num_estudiantes"], antes["mean"], yerr=antes["std"].fillna(0), marker="o", capsize=3, label="Traslados antes (sin refinar)")
+    ax1.errorbar(despues["num_estudiantes"], despues["mean"], yerr=despues["std"].fillna(0), marker="o", capsize=3, label="Traslados después (refinado)")
     ax1.set_xlabel("Número de estudiantes")
     ax1.set_ylabel("Traslados entre sedes (conteo)")
     ax1.legend(loc="upper left")
     ax1.grid(True, alpha=0.3)
 
     ax2 = ax1.twinx()
-    ax2.plot(propuesta["num_estudiantes"], propuesta["reduccion_traslados_pct"], marker="s", color="green", linestyle="--", label="% de reducción")
+    ax2.errorbar(pct["num_estudiantes"], pct["mean"], yerr=pct["std"].fillna(0), marker="s", color="green", linestyle="--", capsize=3, label="% de reducción")
     ax2.set_ylabel("% de reducción")
     ax2.legend(loc="upper right")
 
@@ -79,24 +98,30 @@ def graficar_reduccion_traslados(df: pd.DataFrame, carpeta_salida: str) -> None:
 
 
 def graficar_violaciones_veto(df: pd.DataFrame, carpeta_salida: str) -> None:
-    tabla = df.pivot_table(index="num_estudiantes", columns="modo", values="violaciones_veto")
+    agregado = _agregar(df, "violaciones_veto")
+    tabla_media = agregado.pivot(index="num_estudiantes", columns="modo", values="mean")
     fig, ax = plt.subplots(figsize=(8, 5))
-    tabla.plot(kind="bar", ax=ax)
+    tabla_media.plot(kind="bar", ax=ax)
     ax.set_xlabel("Número de estudiantes")
-    ax.set_ylabel("Estudiantes que ven con un profesor vetado")
-    ax.set_title("Violaciones de veto: baseline vs. propuesta")
+    ax.set_ylabel("Estudiantes que ven con un profesor vetado (promedio)")
+    ax.set_title("Violaciones de veto: DSatur sin restricciones vs. Welsh-Powell vs. propuesta")
     ax.grid(True, axis="y", alpha=0.3)
     fig.tight_layout()
-    fig.savefig(os.path.join(carpeta_salida, "04_violaciones_veto_baseline_vs_propuesta.png"), dpi=150)
+    fig.savefig(os.path.join(carpeta_salida, "04_violaciones_veto_comparativo.png"), dpi=150)
     plt.close(fig)
 
 
 def graficar_franjas_requeridas(df: pd.DataFrame, carpeta_salida: str) -> None:
+    agregado = _agregar(df, "franjas_requeridas")
     fig, ax = plt.subplots(figsize=(8, 5))
-    for modo, grupo in df.groupby("modo"):
+    for modo, grupo in agregado.groupby("modo"):
         grupo = grupo.sort_values("num_estudiantes")
-        ax.plot(grupo["num_estudiantes"], grupo["franjas_requeridas"], marker="o", label=modo)
-    ax.axhline(36, color="red", linestyle="--", label="Límite físico (36 franjas)")
+        ax.errorbar(grupo["num_estudiantes"], grupo["mean"], yerr=grupo["std"], marker="o", capsize=3, label=modo)
+
+    if "hmax_utilizado" in df.columns and not df["hmax_utilizado"].isna().all():
+        hmax = df["hmax_utilizado"].dropna().iloc[0]
+        ax.axhline(hmax, color="red", linestyle="--", label=f"Hmax utilizado ({int(hmax)})")
+
     ax.set_xlabel("Número de estudiantes")
     ax.set_ylabel("Franjas horarias requeridas (χ(G₂))")
     ax.set_title("Franjas requeridas vs. tamaño del problema")

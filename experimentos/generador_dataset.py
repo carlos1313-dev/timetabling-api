@@ -51,7 +51,23 @@ TIPOS_CONTRATO = [
 # Créditos y sesiones semanales típicos, ciclados para dar variedad realista
 CREDITOS_CICLO = [2, 3, 3, 4]
 SESIONES_SEMANALES_CICLO = [1, 2, 2, 3]
-NIVEL_MAXIMO = 10
+NIVEL_MAXIMO = 6  # ciclo básico + primeros semestres de ciclo profesional
+
+# Piso mínimo de materias por nivel: a escalas pequeñas, la proporción real
+# (0.05 materias/estudiante) no alcanza a llenar los 6 niveles con opciones
+# suficientes para que el sesgo por cohorte tenga sentido. Este piso garantiza
+# que siempre haya al menos MATERIAS_MINIMAS_POR_NIVEL materias por nivel,
+# aunque eso implique apartarse un poco de la proporción estricta en escalas
+# muy chicas (a partir de unos cientos de estudiantes, la proporción real
+# domina y este piso deja de tener efecto).
+MATERIAS_MINIMAS_POR_NIVEL = 2
+
+# Probabilidad de que una inscripción individual "cruce" de nivel (el
+# estudiante adelantado/atrasado de tu propio anteproyecto) en vez de tomar
+# una materia de su propio nivel. 0.15 refleja que es la EXCEPCIÓN, no la
+# norma -- a diferencia de la versión anterior de este generador, que
+# inscribía a todo el mundo sin ninguna preferencia por nivel.
+PROBABILIDAD_CRUCE_DE_NIVEL = 0.15
 
 
 def _generar_materias(num_materias: int) -> List[Dict[str, Any]]:
@@ -127,34 +143,67 @@ def _generar_grupos(materias: List[Dict[str, Any]], grupos_por_materia: int = 2)
     return grupos
 
 
+def _asignar_cohortes(estudiantes: List[Dict[str, Any]]) -> None:
+    """
+    Asigna a cada estudiante un nivel de cohorte (en qué semestre está),
+    repartido de forma pareja entre 1 y NIVEL_MAXIMO. Es lo que permite luego
+    preferir materias de su propio nivel al inscribirlo.
+    """
+    for idx, estudiante in enumerate(estudiantes):
+        estudiante["_nivel_cohorte"] = (idx % NIVEL_MAXIMO) + 1
+
+
 def _inscribir_estudiantes(
     estudiantes: List[Dict[str, Any]],
     grupos: List[Dict[str, Any]],
+    materias_por_id: Dict[str, Dict[str, Any]],
     rng: random.Random,
     limite_creditos: int = 18,
     intentos_por_estudiante: int = 5,
 ) -> None:
     """
-    Mismo algoritmo de seed_data.py: cada estudiante intenta inscribirse en
-    `intentos_por_estudiante` grupos aleatorios, respetando el límite de
-    créditos y sin repetir materia.
+    A diferencia de una selección puramente aleatoria sobre TODOS los grupos
+    (que hace que cada estudiante se comporte como el caso excepcional del
+    "Estudiante Ambicioso" de tu anteproyecto), aquí cada estudiante tiene un
+    nivel de cohorte y, para cada intento de inscripción, PROBABILIDAD_CRUCE_DE_NIVEL
+    decide si toma una materia de su propio nivel (norma) o de cualquier otro
+    nivel (excepción -- adelantado o repitente atrasado).
     """
+    _asignar_cohortes(estudiantes)
+
+    grupos_por_nivel: Dict[int, List[Dict[str, Any]]] = defaultdict_lista(NIVEL_MAXIMO)
+    for grupo in grupos:
+        nivel_materia = materias_por_id[grupo["id_materia"]]["nivel"]
+        grupos_por_nivel[nivel_materia].append(grupo)
+
     creditos_por_estudiante = {est["id"]: 0 for est in estudiantes}
 
     for estudiante in estudiantes:
-        k = min(intentos_por_estudiante, len(grupos))
-        grupos_candidatos = rng.sample(grupos, k=k)
+        nivel_propio = estudiante["_nivel_cohorte"]
+        pool_propio = grupos_por_nivel.get(nivel_propio) or grupos
 
-        for grupo in grupos_candidatos:
-            if creditos_por_estudiante[estudiante["id"]] + grupo["_creditos"] <= limite_creditos:
-                materia_id = grupo["id_materia"]
-                ya_inscrito_en_materia = any(
-                    estudiante["id"] in g["estudiantes_inscritos"]
-                    for g in grupos if g["id_materia"] == materia_id
-                )
-                if not ya_inscrito_en_materia:
-                    grupo["estudiantes_inscritos"].append(estudiante["id"])
-                    creditos_por_estudiante[estudiante["id"]] += grupo["_creditos"]
+        for _ in range(intentos_por_estudiante):
+            es_cruce = rng.random() < PROBABILIDAD_CRUCE_DE_NIVEL
+            pool = grupos if es_cruce else pool_propio
+            if not pool:
+                continue
+            grupo = rng.choice(pool)
+
+            if creditos_por_estudiante[estudiante["id"]] + grupo["_creditos"] > limite_creditos:
+                continue
+
+            materia_id = grupo["id_materia"]
+            ya_inscrito_en_materia = any(
+                estudiante["id"] in g["estudiantes_inscritos"]
+                for g in grupos if g["id_materia"] == materia_id
+            )
+            if not ya_inscrito_en_materia:
+                grupo["estudiantes_inscritos"].append(estudiante["id"])
+                creditos_por_estudiante[estudiante["id"]] += grupo["_creditos"]
+
+
+def defaultdict_lista(nivel_maximo: int) -> Dict[int, List[Dict[str, Any]]]:
+    return {nivel: [] for nivel in range(1, nivel_maximo + 1)}
 
 
 def _generar_historial_reprobacion(
@@ -190,16 +239,17 @@ def generar_dataset(num_estudiantes: int, semilla: int = 42) -> Dict[str, Any]:
     """
     rng = random.Random(semilla)
 
-    num_materias = max(4, round(num_estudiantes * PROPORCION_MATERIAS_POR_ESTUDIANTE))
+    num_materias = max(4, round(num_estudiantes * PROPORCION_MATERIAS_POR_ESTUDIANTE), NIVEL_MAXIMO * MATERIAS_MINIMAS_POR_NIVEL)
     num_profesores = max(3, round(num_estudiantes * PROPORCION_PROFESORES_POR_ESTUDIANTE))
     num_vetos = max(1, round(num_estudiantes * VETOS_POR_ESTUDIANTE))
 
     materias = _generar_materias(num_materias)
+    materias_por_id = {m["id"]: m for m in materias}
     profesores = _generar_profesores(num_profesores, rng)
     estudiantes = _generar_estudiantes(num_estudiantes)
     grupos_abiertos = _generar_grupos(materias)
 
-    _inscribir_estudiantes(estudiantes, grupos_abiertos, rng)
+    _inscribir_estudiantes(estudiantes, grupos_abiertos, materias_por_id, rng)
 
     historial_reprobacion = _generar_historial_reprobacion(
         estudiantes, materias, profesores, num_vetos, rng
